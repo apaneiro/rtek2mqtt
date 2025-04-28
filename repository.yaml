@@ -1,0 +1,4 @@
+# https://developers.home-assistant.io/docs/add-ons/repository#repository-configuration
+name: APANEIRO Home Assistant rkek2mqtt add-on repository
+url: https://github.com/apaneiro/rtek2mqtt
+maintainer: Antonio Paneiro <apaneiro@gmail.com>

@@ -1,0 +1,35 @@
+{
+	"name": "RTEK2MQTT",
+	"version": "0.1",
+	"slug": "rtek2mqtt",
+	"homeassistant_api": "no",
+	"hassio_api": true,
+	"description": "Bridge between the RTEK Smart Home System and an MQTT server to get states and control the RTEK devices from Home Assistant.",
+	"url": "https://github.com/apaneiro/rtek2mqtt",
+	"arch": ["aarch64", "amd64", "armhf", "armv7", "i386"],
+	"options": {
+		"rtekHost":null,
+		"rtekPort":8080,
+		"rtekUser":"admin",
+		"rtekPassword":null,
+		"mqttBaseTopic":"rtek",
+		"mqttHost":null,
+		"mqttPort":1883,
+		"mqttUser":"Mosquitto",
+		"mqttPassword":null,
+		"debug":0
+	},
+	"schema": {
+		"rtekHost":"str",
+		"rtekPort":"int",
+		"rtekUser":"str",
+		"rtekPassword":"password?",
+		"mqttBaseTopic":"str",
+		"mqttHost":"str",
+		"mqttPort":"int",
+		"mqttUser":"str",
+		"mqttPassword":"password",
+		"debug":"int"
+	},
+	"map": ["homeassistant_config"]
+}
