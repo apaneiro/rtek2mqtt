@@ -28,9 +28,9 @@ Bridge between the RTEK Smart Home System and an MQTT server to get states and c
 
 ## Home Assistant: homeassistant/rtek/config.yaml:
 
-Create your RTEK config file "config.yaml" on a new folder "rtek" in your config directoy, with the following structure:<br>
-<br>
-You may use the File Editor addon for that purpose.<br>
+Create your RTEK config file "https://raw.githubusercontent.com/apaneiro/rtek2mqtt/master/images/rtek.png"
+on a new folder "rtek" in your config directoy, with the following structure:<br>
+(You may use the File Editor addon for that purpose)<br>
 <br>
 ####################################################<br>
 lights:<br>
