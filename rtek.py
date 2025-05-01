@@ -1,5 +1,4 @@
 import sys
-import os
 import yaml
 
 from rclasses import *

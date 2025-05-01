@@ -1,3 +1,4 @@
+import os
 import json
 import asyncio
 import aiomqtt
@@ -171,10 +172,14 @@ async def start_mqtt(config, rtekTxQueue, mqttTxQueue):
     subscribeTopic = config['mqttBaseTopic'] + "/+/+/+"
     availableTopic = config['mqttBaseTopic'] + "/server/available"
     debug = config['debug']
-    mqttHost = config['mqttHost']
-    mqttPort = config['mqttPort']
-    mqttUser = config['mqttUser']
-    mqttPassword =config['mqttPassword']
+    # mqttHost = config['mqttHost']
+    # mqttPort = config['mqttPort']
+    # mqttUser = config['mqttUser']
+    # mqttPassword =config['mqttPassword']
+    mqttHost = os.environ["MQTTHOST"]
+    mqttPort = int(os.environ["MQTTPORT"])
+    mqttUser = os.environ["MQTTUSER"]
+    mqttPassword = os.environ["MQTTPASSWORD"]
 
     while True:
         tasks = set()

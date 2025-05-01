@@ -13,10 +13,10 @@
 		"rtekUser":"admin",
 		"rtekPassword":null,
 		"mqttBaseTopic":"rtek",
-		"mqttHost":null,
-		"mqttPort":1883,
-		"mqttUser":"Mosquitto",
-		"mqttPassword":null,
+		"mqttHost":"<auto_detect>",
+		"mqttPort":"<auto_detect>",
+		"mqttUser":"<auto_detect>",
+		"mqttPassword":"<auto_detect>",
 		"debug":0
 	},
 	"schema": {
@@ -26,10 +26,11 @@
 		"rtekPassword":"password?",
 		"mqttBaseTopic":"str",
 		"mqttHost":"str",
-		"mqttPort":"int",
+		"mqttPort":"str",
 		"mqttUser":"str",
 		"mqttPassword":"password",
 		"debug":"int"
 	},
-	"map": ["homeassistant_config"]
+	"map": ["homeassistant_config"],
+	"services": ["mqtt:need"]
 }
