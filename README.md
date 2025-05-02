@@ -15,7 +15,7 @@ _RTEK - Smart Home System [Link](https://rtek.pt/en/)_
 Bridge between the RTEK Smart Home System and an MQTT server to get states and control the RTEK devices from Home Assistant with autodiscovery. Devices are automatically configured in Home Assistant by using the Mosquitto addon.<br>
 <br>
 
-<center><img src="https://raw.githubusercontent.com/apaneiro/rtek2mqtt/master/images/rtek.jpg" width=400 style="margin: 5px"/><img src="https://raw.githubusercontent.com/apaneiro/rtek2mqtt/master/images/ha.jpg" width=200 style="margin: 5px"/></center>
+<center><img src="https://raw.githubusercontent.com/apaneiro/rtek2mqtt/master/images/rtek1.jpg" width=200 style="margin: 20px"/><img src="https://raw.githubusercontent.com/apaneiro/rtek2mqtt/master/images/rtek2.jpg" width=200 style="margin: 20px"/><img src="https://raw.githubusercontent.com/apaneiro/rtek2mqtt/master/images/ha.jpg" width=200 style="margin: 20px"/></center>
 
 ## Config
 
