@@ -1,9 +1,11 @@
 ARG BUILD_FROM
-#FROM ${BUILD_FROM}
 FROM python:3.11-buster
 
 # Add env
 ENV LANG C.UTF-8
+
+# Set shell
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 ARG BUILD_ARCH
 ARG BUILD_DATE
@@ -21,6 +23,19 @@ RUN pip3 install asyncio
 RUN pip3 install paho-mqtt
 RUN pip3 install pyyaml
 RUN pip3 install aiomqtt
+
+ARG BASHIO_VERSION="v0.16.4"
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends jq \
+    && curl -J -L -o /tmp/bashio.tar.gz \
+    "https://github.com/hassio-addons/bashio/archive/${BASHIO_VERSION}.tar.gz" \
+    && mkdir /tmp/bashio \
+    && tar zxvf \
+    /tmp/bashio.tar.gz \
+    --strip 1 -C /tmp/bashio \
+    && mv /tmp/bashio/lib /usr/lib/bashio \
+    && ln -s /usr/lib/bashio/bashio /usr/bin/bashio
 
 COPY rtek.py /
 COPY rclasses.py /

@@ -1,9 +1,9 @@
-#!/usr/bin/env bashio
+#!/usr/bin/bashio
 
-MQTTHOST=$(bashio::config "mqtt_host")
-MQTTPORT=$(bashio::config "mqtt_port")
-MQTTUSER=$(bashio::config "mqtt_user")
-MQTTPASSWORD=$(bashio::config "mqtt_pwd")
+MQTTHOST=$(bashio::config "mqttHost")
+MQTTPORT=$(bashio::config "mqttPort")
+MQTTUSER=$(bashio::config "mqttUser")
+MQTTPASSWORD=$(bashio::config "mqttPassword")
 
 if [ "$MQTTHOST" = '<auto_detect>' ]; then
     if bashio::services.available 'mqtt'; then

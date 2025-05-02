@@ -175,7 +175,7 @@ async def start_mqtt(config, rtekTxQueue, mqttTxQueue):
     # mqttHost = config['mqttHost']
     # mqttPort = config['mqttPort']
     # mqttUser = config['mqttUser']
-    # mqttPassword =config['mqttPassword']
+    # mqttPassword = config['mqttPassword']
     mqttHost = os.environ["MQTTHOST"]
     mqttPort = int(os.environ["MQTTPORT"])
     mqttUser = os.environ["MQTTUSER"]

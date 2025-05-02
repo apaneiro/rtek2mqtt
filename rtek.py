@@ -59,7 +59,7 @@ async def load_rtek_config(addonConfig):
         print('Could not open RTEK config file!')
         exit(1)
 
-    # Create rtek devices and send MQTT discovery messages
+    # Create rtek devices and queue MQTT discovery messages
     lights = dict()
     light_config = rtekConfig['lights']
     if (light_config):

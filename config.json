@@ -11,7 +11,7 @@
 		"rtekHost":null,
 		"rtekPort":8080,
 		"rtekUser":"admin",
-		"rtekPassword":null,
+		"rtekPassword":"",
 		"mqttBaseTopic":"rtek",
 		"mqttHost":"<auto_detect>",
 		"mqttPort":"<auto_detect>",
