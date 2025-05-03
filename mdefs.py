@@ -29,7 +29,6 @@ def mqtt_discovery(baseTopic, type, key, config_entry):
     payload_device["model"] = type.capitalize()
 #    payload_device["model_id"] = f"R{type}"
 #    payload_device["name"] = "RTEK " + type.capitalize() + " " + name
-    payload_device["name"] = label.upper() + " - " + name
     try:
         payload_device["suggested_area"] = config_entry['area']
     except:
@@ -39,12 +38,12 @@ def mqtt_discovery(baseTopic, type, key, config_entry):
     payload_origin["name"] = "rtek_addon"
 #    payload_origin["sw"] = "1.0"
 
-    payload["object_id"] = f"rtek_{type}_{label}"
+    payload["object_id"] = f"rtek_{type}_{key}"
 
     payload['availability_topic'] = baseTopic + "/server/available"
     payload['device'] = payload_device
     payload['origin'] = payload_origin
-    payload["unique_id"] = f"rtek_{type}_{label}"
+    payload["unique_id"] = f"rtek_{type}_{key}"
 
     deviceTopic = mqtt_device_topic(baseTopic, type, key)
     match type:
@@ -58,6 +57,7 @@ def mqtt_discovery(baseTopic, type, key, config_entry):
             payload["command_topic"] = deviceTopic + "/set"
             payload_origin["url"] = "https://www.home-assistant.io/integrations/light.mqtt/"
             payload["name"] = 'Light'
+            payload_device["name"] = label.upper() + " - " + name
         case 'sensor':
             platform = 'binary_sensor'
             try:
@@ -66,6 +66,7 @@ def mqtt_discovery(baseTopic, type, key, config_entry):
                 pass
             payload["state_topic"] = deviceTopic + "/state"
             payload_origin["url"] = "https://www.home-assistant.io/integrations/binary_sensor.mqtt/"
+            payload_device["name"] = label.upper() + " - " + name
         case 'blind':
             platform = 'cover'
             try:
@@ -82,14 +83,16 @@ def mqtt_discovery(baseTopic, type, key, config_entry):
             payload["set_position_topic"] = deviceTopic + '/set_position'
             payload_origin["url"] = "https://www.home-assistant.io/integrations/cover.mqtt/"
             payload["name"] = 'Blind'
+            payload_device["name"] = label.upper() + " - " + name
         case 'speaker':
             platform = 'device_automation'
             payload["automation_type"] = 'trigger'
-            payload["type"] = 'button_short_press'
-            payload["subtype"] = config_entry['subtype']
+            payload["type"] = label
+            payload["subtype"] = name
             payload["topic"] = deviceTopic + "/state"
             payload["payload"] = 'ON'
             payload_origin["url"] = "https://www.home-assistant.io/integrations/device_trigger.mqtt/"
+            payload_device["name"] = 'Audio - ' + name + ' ' + label.capitalize()
 
     discovery_payload = json.dumps(payload)
     discovery_topic = f"homeassistant/{platform}/{key}/rtek/config"

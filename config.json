@@ -1,6 +1,6 @@
 {
 	"name": "RTEK2MQTT",
-	"version": "1.0",
+	"version": "1.1",
 	"slug": "rtek2mqtt",
 	"homeassistant_api": "no",
 	"hassio_api": true,
@@ -11,7 +11,7 @@
 		"rtekHost":null,
 		"rtekPort":8080,
 		"rtekUser":"admin",
-		"rtekPassword":"",
+		"rtekPassword":null,
 		"mqttBaseTopic":"rtek",
 		"mqttHost":"<auto_detect>",
 		"mqttPort":"<auto_detect>",
@@ -27,8 +27,8 @@
 		"mqttBaseTopic":"str",
 		"mqttHost":"str",
 		"mqttPort":"str",
-		"mqttUser":"str",
-		"mqttPassword":"password",
+		"mqttUser":"str?",
+		"mqttPassword":"password?",
 		"debug":"int"
 	},
 	"map": ["homeassistant_config"],

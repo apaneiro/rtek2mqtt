@@ -34,12 +34,12 @@ class Light(Device):
     def __init__(self, key, item = dict(), topic=''):
         super().__init__(key, item, topic)
         self.__state = -1
-    
+
     @property
     def state(self):
         return self.__state
-    
-    @state.setter    
+
+    @state.setter
     def state(self, value):
         self.__state = value
 
@@ -48,12 +48,12 @@ class Sensor(Device):
         super().__init__(key, item, topic)
         self.__class = item['class']
         self.__state = -1
-    
+
     @property
     def state(self):
         return self.__state
-        
-    @state.setter    
+
+    @state.setter
     def state(self, value):
         self.__state = value
 
@@ -69,19 +69,19 @@ class Blind(Device):
         self.__position = -1
         self.__position_open = -1
         self.__position_closed = -1
-    
+
     @property
     def position(self):
         return self.__position
-        
-    @position.setter    
+
+    @position.setter
     def position(self, value):
         self.__position = value
 
     @property
     def position_open(self):
         return self.__position_open
-        
+
     @property
     def position_closed(self):
         return self.__position_closed
@@ -91,8 +91,3 @@ class Speaker(Device):
 ##########################################################
     def __init__(self, key, item = dict(), topic=''):
         super().__init__(key, item, topic)
-        self.__subtype = item['subtype']
-    
-    @property
-    def subtype(self):
-        return self.__subtype
