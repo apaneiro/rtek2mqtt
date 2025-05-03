@@ -1,6 +1,6 @@
 {
 	"name": "RTEK2MQTT",
-	"version": "1.1",
+	"version": "1.1.2",
 	"slug": "rtek2mqtt",
 	"homeassistant_api": "no",
 	"hassio_api": true,
