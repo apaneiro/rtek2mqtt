@@ -1,5 +1,5 @@
 ARG BUILD_FROM
-FROM python:3.11-buster
+FROM python:3.13-slim
 
 # Add env
 ENV LANG C.UTF-8
@@ -27,6 +27,7 @@ RUN pip3 install aiomqtt
 ARG BASHIO_VERSION="v0.16.4"
 
 RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
     && apt-get install -y --no-install-recommends jq \
     && curl -J -L -o /tmp/bashio.tar.gz \
     "https://github.com/hassio-addons/bashio/archive/${BASHIO_VERSION}.tar.gz" \
