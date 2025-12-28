@@ -1,8 +1,4 @@
 from enum import Enum
-import time
-
-millisec_img = int(round(time.time() * 1000))
-
 
 ##########################################################
 class Device():
@@ -328,14 +324,3 @@ def rtek_hex_block_zeros(field1, zeros):
     blockLenHex = f'{blockLen:08x}'     # 4 bytes
 
     return blockLenHex + field1LenHex + field1Hex + zeros + 'ab'
-
-##########################################################
-def throttle_images_per_sec(img_per_sec):
-##########################################################
-    global millisec_img
-
-    # throtle images per second to 10
-    millisec_now = int(round(time.time() * 1000))
-    if millisec_img - millisec_now < 1000 / img_per_sec:
-        time.sleep(2 / img_per_sec)
-    millisec_img = millisec_now

@@ -5,6 +5,7 @@ import logging
 import sys
 import base64
 import json
+import time
 
 from devices import *
 from config import load_rtek_config
@@ -25,6 +26,10 @@ rtekTxQueue = asyncio.Queue()
 rtek_poll_received = False
 frames_received = 0
 debug = 0
+
+cameraMaxFps = 0
+cameraSecondsOn = 0
+millisec_lastimg = int(round(time.time() * 1000))
 baseTopic = ''
 
 handler = logging.StreamHandler(sys.stdout)
@@ -35,6 +40,18 @@ handler.setFormatter(formatter)
 log = logging.getLogger()
 log.setLevel(logging.DEBUG)
 log.addHandler(handler)
+
+##########################################################
+def throttle_images_per_sec():
+##########################################################
+    global millisec_lastimg
+
+    # throtle images per second to cameraMaxFps
+    millisec_now = int(round(time.time() * 1000))
+    if millisec_lastimg - millisec_now < 1000 / cameraMaxFps:
+        time.sleep(1 / cameraMaxFps) # seconds
+    millisec_lastimg = millisec_now
+
 
 
 ##########################################################
@@ -386,14 +403,14 @@ class RtekClient(asyncio.Protocol):
                                     log.info(f'================> Request new Image for: {doorbell_name}, Call In Progress')
 
                             else:
-                                if frames_received < 150:
-                                    throttle_images_per_sec(10)
+                                if frames_received < cameraSecondsOn * cameraMaxFps:
+                                    throttle_images_per_sec()
 
                                     # Send to Rtek - request new image
                                     packet ='fa 02 00 44 ' + rtek_hex_block('RequestServiceOnDemand', f'VideoDoorUndecodedImageOnDemand#{doorbell_name}')
                                     rtekTxQueue.put_nowait(packet)
 
-                                    # limit nr of frames to 100 while off call
+                                    # limit nr of frames while off call
                                     frames_received += 1
 
                                     if (debug > 0):
@@ -404,7 +421,7 @@ class RtekClient(asyncio.Protocol):
                                     mqttTxQueue.put_nowait([doorbell.active.topic + '/set', 'OFF', 0, False])
 
                                     frames_received = 0
-                                # end - if frames_received < 100:
+                                # end - if frames_received
                             # end - if call_inprogress:
                         # end - if doorbell.active.state == 1:
 
@@ -702,6 +719,8 @@ async def rtek_polling(rtek_tg):
 def load_addon_config():
 ##########################################################
     global debug
+    global cameraMaxFps
+    global cameraSecondsOn
     global baseTopic
 
     addonConfig = dict()
@@ -714,6 +733,8 @@ def load_addon_config():
         exit(1)
 
     debug = addonConfig["debug"]
+    cameraSecondsOn = addonConfig["cameraMaxFps"]
+    cameraMaxFps = addonConfig["cameraSecondsOn"]
     baseTopic = addonConfig['mqttBaseTopic']
 
     return addonConfig
