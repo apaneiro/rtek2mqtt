@@ -48,7 +48,7 @@ def throttle_images_per_sec():
 
     # throtle images per second to cameraMaxFps
     millisec_now = int(round(time.time() * 1000))
-    if millisec_lastimg - millisec_now < 1000 / cameraMaxFps:
+    if millisec_now - millisec_lastimg < 1000 / cameraMaxFps:
         time.sleep(1 / cameraMaxFps) # seconds
     millisec_lastimg = millisec_now
 
