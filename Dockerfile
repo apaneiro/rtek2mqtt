@@ -1,5 +1,5 @@
 ARG BUILD_FROM
-FROM python:3.13-slim
+FROM python:3.14-slim
 
 # Add env
 ENV LANG C.UTF-8
@@ -24,7 +24,7 @@ RUN pip3 install paho-mqtt
 RUN pip3 install pyyaml
 RUN pip3 install aiomqtt
 
-ARG BASHIO_VERSION="v0.16.4"
+ARG BASHIO_VERSION="v0.17.5"
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl \
@@ -39,8 +39,8 @@ RUN apt-get update \
     && ln -s /usr/lib/bashio/bashio /usr/bin/bashio
 
 COPY rtek.py /
-COPY rclasses.py /
-COPY mdefs.py /
+COPY devices.py /
+COPY config.py /
 COPY run.sh /
 
 RUN chmod a+x /run.sh
