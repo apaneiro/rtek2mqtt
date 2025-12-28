@@ -1,4 +1,8 @@
 from enum import Enum
+import time
+
+millisec_img = int(round(time.time() * 1000))
+
 
 ##########################################################
 class Device():
@@ -124,7 +128,7 @@ class Doorbell(Device):
             if payload == 'ON':
                 # Send to Rtek - open door
                 packet ='fa 02 00 44 ' + rtek_hex_block('OpenDoor', doorbell.name)
-                #rtekTxQueue.put_nowait(packet)
+                rtekTxQueue.put_nowait(packet)
 
                 # OPENDOOR is momentary press
                 mqttTxQueue.put_nowait([switch.topic + '/set', 'OFF', 0, False])
@@ -325,4 +329,13 @@ def rtek_hex_block_zeros(field1, zeros):
 
     return blockLenHex + field1LenHex + field1Hex + zeros + 'ab'
 
+##########################################################
+def throttle_images_per_sec(img_per_sec):
+##########################################################
+    global millisec_img
 
+    # throtle images per second to 10
+    millisec_now = int(round(time.time() * 1000))
+    if millisec_img - millisec_now < 1000 / img_per_sec:
+        time.sleep(2 / img_per_sec)
+    millisec_img = millisec_now
