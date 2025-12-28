@@ -247,7 +247,7 @@ class RtekClient(asyncio.Protocol):
 
         if doorbells is not None:
             for doorbell in doorbells.values():
-                throttle_images_per_sec(10)
+                throttle_images_per_sec()
 
                 # Send to Rtek - request new image
                 packet ='fa 02 00 44 ' + rtek_hex_block('RequestServiceOnDemand', f'VideoDoorUndecodedImageOnDemand#{doorbell.name}')
@@ -393,7 +393,7 @@ class RtekClient(asyncio.Protocol):
                             call_inprogress = self.current_call_doorbell is not None
 
                             if call_inprogress:
-                                throttle_images_per_sec(10)
+                                throttle_images_per_sec()
 
                                 # Send to Rtek - request new image
                                 packet ='fa 02 00 44 ' + rtek_hex_block('RequestServiceOnDemand', f'VideoDoorUndecodedImageOnDemand#{doorbell_name}')
