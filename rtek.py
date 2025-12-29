@@ -29,7 +29,7 @@ debug = 0
 
 cameraMaxFps = 0
 cameraSecondsOn = 0
-millisec_lastimg = int(round(time.time() * 1000))
+time_lastimg = time.time()
 baseTopic = ''
 
 handler = logging.StreamHandler(sys.stdout)
@@ -44,13 +44,18 @@ log.addHandler(handler)
 ##########################################################
 def throttle_images_per_sec():
 ##########################################################
-    global millisec_lastimg
+    global time_lastimg
 
     # throtle images per second to cameraMaxFps
-    millisec_now = int(round(time.time() * 1000))
-    if millisec_now - millisec_lastimg < 1000 / cameraMaxFps:
-        time.sleep(1 / cameraMaxFps) # seconds
-    millisec_lastimg = millisec_now
+    time_now = time.time()
+
+    ms_elapsed = (time_now - time_lastimg) * 1000
+    ms_perimage = 1000 / cameraMaxFps
+
+    if ms_elapsed < ms_perimage:
+        time.sleep((ms_perimage - ms_elapsed) / 1000) # in seconds
+
+    time_lastimg = time_now
 
 
 
@@ -247,8 +252,6 @@ class RtekClient(asyncio.Protocol):
 
         if doorbells is not None:
             for doorbell in doorbells.values():
-                throttle_images_per_sec()
-
                 # Send to Rtek - request new image
                 packet ='fa 02 00 44 ' + rtek_hex_block('RequestServiceOnDemand', f'VideoDoorUndecodedImageOnDemand#{doorbell.name}')
                 rtekTxQueue.put_nowait(packet)
@@ -393,9 +396,8 @@ class RtekClient(asyncio.Protocol):
                             call_inprogress = self.current_call_doorbell is not None
 
                             if call_inprogress:
-                                throttle_images_per_sec()
-
                                 # Send to Rtek - request new image
+                                throttle_images_per_sec()
                                 packet ='fa 02 00 44 ' + rtek_hex_block('RequestServiceOnDemand', f'VideoDoorUndecodedImageOnDemand#{doorbell_name}')
                                 rtekTxQueue.put_nowait(packet)
 
@@ -404,9 +406,8 @@ class RtekClient(asyncio.Protocol):
 
                             else:
                                 if frames_received < cameraSecondsOn * cameraMaxFps:
-                                    throttle_images_per_sec()
-
                                     # Send to Rtek - request new image
+                                    throttle_images_per_sec()
                                     packet ='fa 02 00 44 ' + rtek_hex_block('RequestServiceOnDemand', f'VideoDoorUndecodedImageOnDemand#{doorbell_name}')
                                     rtekTxQueue.put_nowait(packet)
 
@@ -733,8 +734,8 @@ def load_addon_config():
         exit(1)
 
     debug = addonConfig["debug"]
-    cameraSecondsOn = addonConfig["cameraMaxFps"]
-    cameraMaxFps = addonConfig["cameraSecondsOn"]
+    cameraMaxFps = addonConfig["cameraMaxFps"]
+    cameraSecondsOn = addonConfig["cameraSecondsOn"]
     baseTopic = addonConfig['mqttBaseTopic']
 
     return addonConfig
