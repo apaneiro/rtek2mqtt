@@ -72,35 +72,35 @@ class Doorbell(Device):
     def inprogress(self, value):
         self.__inprogress = value
 
-
+    ######################################
     def handle_mqtt_button_press(self, debug, log, mqttTxQueue, rtekTxQueue, button, payload):
+    ######################################
         if (debug > 0):
             log.info (f'========> BUTTON {payload}: {button.name}')
 
         doorbell = self
 
         if button.function is ButtonF.STARTCALL:
-            # Green button
-            if doorbell.active.state == 0:
-                # set camera ON
-                mqttTxQueue.put_nowait([doorbell.active.topic + '/set', 'ON', 0, False])
-
-                frames_received = 0
-
+            # Green button, set camera ON
+            mqttTxQueue.put_nowait([doorbell.active.topic + '/set', 'ON', 0, False])
+            if debug > 0:
                 log.info('========> CAMERA ON =========')
 
+            if doorbell.incoming.state == 1:
+                # Send to Rtek - accept call
+                packet ='fa 02 00 44 ' + rtek_hex_block('AcceptCall', 'all')
+                rtekTxQueue.put_nowait(packet)
+                if debug > 0:
+                    log.info(f'========> ACCEPT {doorbell.name} =========')
+
         elif button.function is ButtonF.ENDCALL:
+            # Red button
             if doorbell.inprogress.state == 1:
                 # Send to Rtek - hangup
                 packet ='fa 02 00 44 ' + rtek_hex_block('HangupCall', doorbell.name)
                 rtekTxQueue.put_nowait(packet)
-
                 if debug > 0:
                     log.info(f'========> HANGUP {doorbell.name} =========')
-
-                # inprogress OFF, incoming OFF
-                mqttTxQueue.put_nowait([doorbell.inprogress.topic + '/state', 'OFF', 0, True])
-                mqttTxQueue.put_nowait([doorbell.incoming.topic + '/state', 'OFF', 0, True])
 
                 # set camera OFF??
                 #mqttTxQueue.put_nowait([doorbell.active.topic + '/set', 'OFF', 0, False])
@@ -109,7 +109,9 @@ class Doorbell(Device):
                 # set camera OFF
                 mqttTxQueue.put_nowait([doorbell.active.topic + '/set', 'OFF', 0, False])
 
+    ######################################
     def handle_mqtt_switch_state(self, debug, log, mqttTxQueue, rtekTxQueue, switch, payload):
+    ######################################
         if (debug > 0):
             log.info (f'========> SWITCH {payload}: {switch.name}')
 
@@ -144,7 +146,75 @@ class Doorbell(Device):
                 log.info(f'========> CAMERA OFF: {doorbell.name}')
 
 
+##########################################################
+class Alarm(Device):
+##########################################################
+    def __init__(self, key, device, topic):
+        super().__init__(key, device, topic)
+        self.__state = AlarmF.DISARM
+        self.__code_arm_required = device['arm_requires_pin']
+        self.__code_disarm_required = device['disarm_requires_pin']
+        self.__code_trigger_required = device['trigger_requires_pin']
+        self.__code = device['pin']
 
+    @property
+    def state(self):
+        return self.__state
+
+    @state.setter
+    def state(self, value):
+        self.__state = value
+
+    @property
+    def code_arm_required(self):
+        return self.__code_arm_required
+
+    @property
+    def code_disarm_required(self):
+        return self.__code_disarm_required
+
+    @property
+    def code_trigger_required(self):
+        return self.__code_trigger_required
+
+    @property
+    def code(self):
+        return self.__code
+
+    ######################################
+    def handle_mqtt_alarm_state(self, debug, log, mqttTxQueue, rtekTxQueue, payload):
+    ######################################
+        if (debug > 0):
+            log.info (f'========> SWITCH {payload}: {self.name}')
+
+        alarm = self
+
+        # Update state
+        match payload:
+            case 'DISARM':
+                # disarm timer?
+                #mqttTxQueue.put_nowait([self.topic + '/state', 'disarming', 0, True])
+                #alarm.state = AlarmF.DISARMING
+                #await asyncio.sleep( )
+                mqttTxQueue.put_nowait([self.topic + '/state', 'disarmed', 0, True])
+                alarm.state = AlarmF.DISARM
+            case 'ARM_HOME':
+                # arm timer???
+                #mqttTxQueue.put_nowait([self.topic + '/state', 'arming', 0, True])
+                #alarm.state = AlarmF.ARMING
+                #await asyncio.sleep( )
+                mqttTxQueue.put_nowait([self.topic + '/state', 'armed_home', 0, True])
+                alarm.state = AlarmF.ARM_HOME
+            case 'ARM_AWAY':
+                # arm timer???
+                #mqttTxQueue.put_nowait([self.topic + '/state', 'arming', 0, True])
+                #alarm.state = AlarmF.ARMING
+                #await asyncio.sleep( )
+                mqttTxQueue.put_nowait([self.topic + '/state', 'armed_away', 0, True])
+                alarm.state = AlarmF.ARM_AWAY
+            case 'TRIGGER':
+                mqttTxQueue.put_nowait([self.topic + '/state', 'triggered', 0, True])
+                alarm.state = AlarmF.TRIGGER
 
 ##########################################################
 class Camera(Device):
@@ -291,6 +361,18 @@ class SwitchF(Enum):
 #    CALLREQUEST = 1
 #    INPROGRESS = 2
 
+##########################################################
+class AlarmF(Enum):
+##########################################################
+    DISARM = 0
+    DISARMING = 1
+    ARM_HOME = 2
+    ARM_AWAY = 3
+    ARMING = 4
+    TRIGGER = 5
+    ARMED_HOME = 6
+    ARMED_AWAY = 7
+    TRIGGERED = 8
 
 
 ##########################################################

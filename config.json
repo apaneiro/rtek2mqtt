@@ -1,6 +1,6 @@
 {
 	"name": "RTEK2MQTT",
-	"version": "1.3.21",
+	"version": "1.3.22 ",
 	"slug": "rtek2mqtt",
 	"homeassistant_api": "no",
 	"hassio_api": true,
@@ -17,7 +17,7 @@
 		"mqttPort":"<auto_detect>",
 		"mqttUser":"<auto_detect>",
 		"mqttPassword":"<auto_detect>",
-		"cameraMaxFps":24,
+		"cameraMaxFps":5,
 		"cameraSecondsOn":15,
 		"debug":1
 	},
