@@ -4,7 +4,7 @@ import json
 from devices import *
 
 ##########################################################
-async def load_rtek_config(log, mqttTxQueue, baseTopic):
+async def load_rtek_config(log, addonConfig, mqttTxQueue, baseTopic):
 ##########################################################
     rtekConfig = dict()
 
@@ -17,7 +17,6 @@ async def load_rtek_config(log, mqttTxQueue, baseTopic):
     blinds = dict()
     speakers = dict()
     cameras = dict()
-    alarms = dict()
 
     try:
         rtekConfigFile = "/homeassistant/rtek/config.yaml"
@@ -47,7 +46,9 @@ async def load_rtek_config(log, mqttTxQueue, baseTopic):
             doorbell_entity['name'] = f'Camera {name}'
             key += 1
             topic = mqtt_entity_topic(baseTopic, key, 'camera')
-            cameras[key] = Camera(key, doorbell_entity, topic, doorbell = doorbell)
+            cameraMaxFps = addonConfig["cameraMaxFps"]
+            cameraSecondsOn = addonConfig["cameraSecondsOn"]
+            cameras[key] = Camera(key, doorbell_entity, topic, maxfps = cameraMaxFps, maxsecondson = cameraSecondsOn, doorbell = doorbell)
             mqttTxQueue.put_nowait(
                 mqtt_discovery(baseTopic, key, 'camera', doorbell_entity, device = doorbell))
 
@@ -63,7 +64,7 @@ async def load_rtek_config(log, mqttTxQueue, baseTopic):
                 mqtt_discovery(baseTopic, key, 'switch', doorbell_entity, device = doorbell))
             mqttTxQueue.put_nowait([topic + '/set', 'OFF', 0, False])
 
-            doorbell.active = switches[key]
+            doorbell.ison_switch = switches[key]
 
             doorbell_entity = entity.copy()
             doorbell_entity['name'] = f'Start Call {name}'
@@ -121,22 +122,6 @@ async def load_rtek_config(log, mqttTxQueue, baseTopic):
             doorbell.inprogress = sensors[key]
     else:
         log.info('INFO: empty doorbells config section')
-
-
-    section = None
-    try:
-        section = rtekConfig['alarms']
-    except:
-        log.info('INFO: config section missing - alarms')
-    if isinstance(section, dict):
-        for key, entity in section.items():
-            topic = mqtt_entity_topic(baseTopic, key, 'alarm')
-            alarms[key] = Alarm(key, entity, topic)
-            mqttTxQueue.put_nowait(
-                mqtt_discovery(baseTopic, key, 'alarm', entity))
-            mqttTxQueue.put_nowait([topic + '/state', 'disarmed', 0, True])
-    else:
-        log.info('INFO: empty alarms config section')
 
     section = None
     try:
@@ -208,43 +193,45 @@ async def load_rtek_config(log, mqttTxQueue, baseTopic):
     else:
         log.info('INFO: empty speakers config section')
 
-#    section = None
-#    try:
-#        section = rtekConfig['buttons']
-#    except:
-#        log.info('INFO: config section missing - buttons')
-#    if isinstance(section, dict):
-#        for key, entity in section.items():
-#            topic = mqtt_entity_topic(baseTopic, key, 'button')
-#            buttons[key] = Button(key, entity, topic)
-#            mqttTxQueue.put_nowait(
-#                mqtt_discovery(baseTopic, key, 'button', entity))
-#    else:
-#        log.info('INFO: empty buttons config section')
-
-#    section = None
-#    try:
-#        section = rtekConfig['cameras']
-#    except:
-#        log.info('INFO: config section missing - cameras')
-#    if isinstance(section, dict):
-#        for key, entity in section.items():
-#            topic = mqtt_entity_topic(baseTopic, key, 'camera')
-#            cameras[key] = Camera(key, entity, topic)
-#            mqttTxQueue.put_nowait(
-#                mqtt_discovery(baseTopic, key, 'camera', entity))
-#    else:
-#        log.info('INFO: empty cameras config section')
-
     return {'doorbells': doorbells,
             'cameras': cameras,
-            'alarms': alarms,
             'buttons': buttons,
             'sensors': sensors,
             'switches': switches,
             'lights': lights,
             'blinds': blinds,
-            'speakers': speakers}
+            'speakers': speakers
+            }
+
+'''
+    section = None
+    try:
+        section = rtekConfig['buttons']
+    except:
+        log.info('INFO: config section missing - buttons')
+    if isinstance(section, dict):
+        for key, entity in section.items():
+            topic = mqtt_entity_topic(baseTopic, key, 'button')
+            buttons[key] = Button(key, entity, topic)
+            mqttTxQueue.put_nowait(
+                mqtt_discovery(baseTopic, key, 'button', entity))
+    else:
+        log.info('INFO: empty buttons config section')
+
+    section = None
+    try:
+        section = rtekConfig['cameras']
+    except:
+        log.info('INFO: config section missing - cameras')
+    if isinstance(section, dict):
+        for key, entity in section.items():
+            topic = mqtt_entity_topic(baseTopic, key, 'camera')
+            cameras[key] = Camera(key, entity, topic)
+            mqttTxQueue.put_nowait(
+                mqtt_discovery(baseTopic, key, 'camera', entity))
+    else:
+        log.info('INFO: empty cameras config section')
+'''
 
 
 ##########################################################
@@ -297,31 +284,6 @@ def mqtt_discovery(baseTopic, key, entity_type, entity, device = None):
     platform = entity_type             # not for all types
     deviceTopic = mqtt_entity_topic(baseTopic, key, entity_type)
     match entity_type:
-        case 'alarm':
-            platform = 'alarm_control_panel'
-            payload["state_topic"] = deviceTopic + "/state"
-            payload["command_topic"] = deviceTopic + "/set"
-            payload_origin["url"] = "https://www.home-assistant.io/integrations/alarm_control_panel.mqtt/"
-            try:
-                payload['code'] = entity['pin']
-                try:
-                    payload['code_arm_required'] = entity['arm_requires_pin']
-                except:
-                    payload['code_arm_required'] = True
-                try:
-                    payload['code_disarm_required'] = entity['disarm_requires_pin']
-                except:
-                    payload['code_disarm_required'] = True
-                try:
-                    payload['code_trigger_required'] = entity['trigger_requires_pin']
-                except:
-                    payload['code_trigger_required'] = True
-            except:
-                payload['code_arm_required'] = False
-                payload['code_disarm_required'] = False
-                payload['code_trigger_required'] = False
-            payload['supported_features'] = ['arm_home', 'arm_away']
-            payload["name"] = f'Alarm {name}'
         case 'button':
             try:
                 payload["icon"] = 'mdi:' + entity['icon']

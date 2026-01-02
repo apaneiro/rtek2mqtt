@@ -1,13 +1,18 @@
+import asyncio
+
 from enum import Enum
+from time import time
+from base64 import b64encode
+
 
 ##########################################################
 class Device():
 ##########################################################
-    def __init__(self, key, device, topic):
+    def __init__(self, key, config_entity, topic):
         self.__key = key
-        self.__label = device['label']
-        self.__name = device['name']
-        self.__area = device['area']
+        self.__label = config_entity['label']
+        self.__name = config_entity['name']
+        self.__area = config_entity['area']
         self.__topic = topic
 
     @property
@@ -33,10 +38,10 @@ class Device():
 ##########################################################
 class Doorbell(Device):
 ##########################################################
-    def __init__(self, key, device, topic):
-        super().__init__(key, device, topic)
+    def __init__(self, key, config_entity, topic):
+        super().__init__(key, config_entity, topic)
         self.__camera = None
-        self.__active = None
+        self.__ison_switch = None
         self.__incoming = None
         self.__inprogress = None
 
@@ -49,12 +54,12 @@ class Doorbell(Device):
         self.__camera = value
 
     @property
-    def active(self):
-        return self.__active
+    def ison_switch(self):
+        return self.__ison_switch
 
-    @active.setter
-    def active(self, value):
-        self.__active = value
+    @ison_switch.setter
+    def ison_switch(self, value):
+        self.__ison_switch = value
 
     @property
     def incoming(self):
@@ -80,34 +85,35 @@ class Doorbell(Device):
 
         doorbell = self
 
-        if button.function is ButtonF.STARTCALL:
-            # Green button, set camera ON
-            mqttTxQueue.put_nowait([doorbell.active.topic + '/set', 'ON', 0, False])
-            if debug > 0:
-                log.info('========> CAMERA ON =========')
-
-            if doorbell.incoming.state == 1:
-                # Send to Rtek - accept call
-                packet ='fa 02 00 44 ' + rtek_hex_block('AcceptCall', 'all')
-                rtekTxQueue.put_nowait(packet)
+        match button.function:
+            case ButtonF.STARTCALL:
+                # Green button, set camera ON
+                mqttTxQueue.put_nowait([doorbell.ison_switch.topic + '/set', 'ON', 0, False])
                 if debug > 0:
-                    log.info(f'========> ACCEPT {doorbell.name} =========')
+                    log.info('========> CAMERA ON =========')
 
-        elif button.function is ButtonF.ENDCALL:
-            # Red button
-            if doorbell.inprogress.state == 1:
-                # Send to Rtek - hangup
-                packet ='fa 02 00 44 ' + rtek_hex_block('HangupCall', doorbell.name)
-                rtekTxQueue.put_nowait(packet)
-                if debug > 0:
-                    log.info(f'========> HANGUP {doorbell.name} =========')
+                if doorbell.incoming.state == 1:
+                    # Send to Rtek - accept call
+                    packet ='fa 02 00 44 ' + rtek_hex_block('AcceptCall', 'all')
+                    rtekTxQueue.put_nowait(packet)
+                    if debug > 0:
+                        log.info(f'========> ACCEPT {doorbell.name} =========')
 
-                # set camera OFF??
-                #mqttTxQueue.put_nowait([doorbell.active.topic + '/set', 'OFF', 0, False])
+            case ButtonF.ENDCALL:
+                # Red button
+                if doorbell.inprogress.state == 1:
+                    # Send to Rtek - hangup
+                    packet ='fa 02 00 44 ' + rtek_hex_block('HangupCall', doorbell.name)
+                    rtekTxQueue.put_nowait(packet)
+                    if debug > 0:
+                        log.info(f'========> HANGUP {doorbell.name} =========')
 
-            elif doorbell.active.state == 1:
-                # set camera OFF
-                mqttTxQueue.put_nowait([doorbell.active.topic + '/set', 'OFF', 0, False])
+                    # set camera OFF??
+                    #mqttTxQueue.put_nowait([doorbell.ison_switch.topic + '/set', 'OFF', 0, False])
+
+                elif doorbell.ison_switch.state == 1:
+                    # set camera OFF
+                    mqttTxQueue.put_nowait([doorbell.ison_switch.topic + '/set', 'OFF', 0, False])
 
     ######################################
     def handle_mqtt_switch_state(self, debug, log, mqttTxQueue, rtekTxQueue, switch, payload):
@@ -121,117 +127,133 @@ class Doorbell(Device):
         switch.state = 1 if payload == 'ON' else 0
         mqttTxQueue.put_nowait([switch.topic + '/state', payload, 0, True])
 
-        # Open Door
-        if switch.function is SwitchF.OPENDOOR:
-            if payload == 'ON':
-                # Send to Rtek - open door
-                packet ='fa 02 00 44 ' + rtek_hex_block('OpenDoor', doorbell.name)
-                rtekTxQueue.put_nowait(packet)
+        match switch.function:
+            case SwitchF.OPENDOOR:
+                if payload == 'ON':
+                    # Send to Rtek - open door
+                    packet ='fa 02 00 44 ' + rtek_hex_block('OpenDoor', doorbell.name)
+                    rtekTxQueue.put_nowait(packet)
 
-                # OPENDOOR is momentary press
-                mqttTxQueue.put_nowait([switch.topic + '/set', 'OFF', 0, False])
+                    # OPENDOOR is momentary press
+                    mqttTxQueue.put_nowait([switch.topic + '/set', 'OFF', 0, False])
 
-                if debug > 0:
-                    log.info(f'========> OPEN DOOR: {doorbell.name} =========')
+                    if debug > 0:
+                        log.info(f'========> OPEN DOOR: {doorbell.name} =========')
 
-        # Camera ON/OFF
-        elif switch.function is SwitchF.ENABLECAM:
-            if payload == 'ON':
-                log.info(f'========> CAMERA ON: {doorbell.name}')
+            case SwitchF.ENABLECAM:
+                if payload == 'ON':
+                    log.info(f'========> CAMERA ON: {doorbell.name}')
 
-                # Send to Rtek
-                packet ='fa 02 00 44 ' + rtek_hex_block('RequestServiceOnDemand', f'VideoDoorUndecodedImageOnDemand#{doorbell.name}')
-                rtekTxQueue.put_nowait(packet)
-            else:
-                log.info(f'========> CAMERA OFF: {doorbell.name}')
+                    doorbell.camera.ison_time = time()
 
+                    # Send to Rtek
+                    packet ='fa 02 00 44 ' + rtek_hex_block('RequestServiceOnDemand', f'VideoDoorUndecodedImageOnDemand#{doorbell.name}')
+                    rtekTxQueue.put_nowait(packet)
+                else:
+                    log.info(f'========> CAMERA OFF: {doorbell.name}')
 
-##########################################################
-class Alarm(Device):
-##########################################################
-    def __init__(self, key, device, topic):
-        super().__init__(key, device, topic)
-        self.__state = AlarmF.DISARM
-        self.__code_arm_required = device['arm_requires_pin']
-        self.__code_disarm_required = device['disarm_requires_pin']
-        self.__code_trigger_required = device['trigger_requires_pin']
-        self.__code = device['pin']
+                    doorbell.camera.ison_time = 0
 
-    @property
-    def state(self):
-        return self.__state
-
-    @state.setter
-    def state(self, value):
-        self.__state = value
-
-    @property
-    def code_arm_required(self):
-        return self.__code_arm_required
-
-    @property
-    def code_disarm_required(self):
-        return self.__code_disarm_required
-
-    @property
-    def code_trigger_required(self):
-        return self.__code_trigger_required
-
-    @property
-    def code(self):
-        return self.__code
-
-    ######################################
-    def handle_mqtt_alarm_state(self, debug, log, mqttTxQueue, rtekTxQueue, payload):
-    ######################################
-        if (debug > 0):
-            log.info (f'========> SWITCH {payload}: {self.name}')
-
-        alarm = self
-
-        # Update state
-        match payload:
-            case 'DISARM':
-                # disarm timer?
-                #mqttTxQueue.put_nowait([self.topic + '/state', 'disarming', 0, True])
-                #alarm.state = AlarmF.DISARMING
-                #await asyncio.sleep( )
-                mqttTxQueue.put_nowait([self.topic + '/state', 'disarmed', 0, True])
-                alarm.state = AlarmF.DISARM
-            case 'ARM_HOME':
-                # arm timer???
-                #mqttTxQueue.put_nowait([self.topic + '/state', 'arming', 0, True])
-                #alarm.state = AlarmF.ARMING
-                #await asyncio.sleep( )
-                mqttTxQueue.put_nowait([self.topic + '/state', 'armed_home', 0, True])
-                alarm.state = AlarmF.ARM_HOME
-            case 'ARM_AWAY':
-                # arm timer???
-                #mqttTxQueue.put_nowait([self.topic + '/state', 'arming', 0, True])
-                #alarm.state = AlarmF.ARMING
-                #await asyncio.sleep( )
-                mqttTxQueue.put_nowait([self.topic + '/state', 'armed_away', 0, True])
-                alarm.state = AlarmF.ARM_AWAY
-            case 'TRIGGER':
-                mqttTxQueue.put_nowait([self.topic + '/state', 'triggered', 0, True])
-                alarm.state = AlarmF.TRIGGER
 
 ##########################################################
 class Camera(Device):
 ##########################################################
-    def __init__(self, key, device, topic, doorbell = None):
-        super().__init__(key, device, topic)
+    def __init__(self, key, config_entity, topic, maxfps, maxsecondson, doorbell = None):
+        super().__init__(key, config_entity, topic)
         self.__doorbell = doorbell
+        self.__maxfps = maxfps
+        self.__maxsecondson = maxsecondson
+        self.__ison_time = 0
+        self.__last_image_time = time()
+        self.__is_processing = False
 
     @property
     def doorbell(self):
         return self.__doorbell
 
+    @property
+    def ison_time(self):
+        return self.__ison_time
+
+    @ison_time.setter
+    def ison_time(self, value):
+        self.__ison_time = value
+
+    @property
+    def last_image_time(self):
+        return self.__last_image_time
+
+    @last_image_time.setter
+    def last_image_time(self, value):
+        self.__last_image_time = value
+
+    @property
+    def is_processing(self):
+        return self.__is_processing
+
+    @is_processing.setter
+    def is_processing(self, value):
+        self.__is_processing = value
+
+    @property
+    def maxfps(self):
+        return self.__maxfps
+
+    @property
+    def maxsecondson(self):
+        return self.__maxsecondson
+
+    ######################################
+    async def handle_new_image(self, log, debug, mqttTxQueue, rtekTxQueue, data: bytes):
+    ######################################
+        is_processing = self.is_processing
+        last_image_time = self.last_image_time
+        camera = self
+
+        # wait for previous instance to finish
+        while is_processing:
+            await asyncio.sleep(0.01)
+        is_processing = True
+
+        topic = camera.topic
+        doorbell_name = camera.doorbell.name
+
+        # throtle images per second to cameraMaxFps
+        time_now = time()
+        millisecs_elapsed = (time_now - last_image_time) * 1000
+        millisecs_per_image = 1000 / self.maxfps
+
+        if millisecs_elapsed < millisecs_per_image:
+            await asyncio.sleep((millisecs_per_image - millisecs_elapsed) / 1000) # in seconds
+
+        # Send to Rtek - request new image
+        packet ='fa 02 00 44 ' + rtek_hex_block('RequestServiceOnDemand', f'VideoDoorUndecodedImageOnDemand#{doorbell_name}')
+        rtekTxQueue.put_nowait(packet)
+
+        if (debug > 0):
+            log.info(f'================> Request new Image for: {doorbell_name}')
+
+        # send to Mqtt - publish image received
+        image = await self.async_b64encode(data)
+        #image = b64encode(data)
+        mqttTxQueue.put_nowait([topic + '/image', image, 0, True])
+
+        last_image_time = time()
+        is_processing = False
+
+    ######################################
+    async def async_b64encode(self, data: bytes):
+    ######################################
+        loop = asyncio.get_running_loop()
+        # Offload CPU-heavy task to a thread pool
+        return await loop.run_in_executor(None, b64encode, data)
+
+
 ##########################################################
 class Button(Device):
 ##########################################################
-    def __init__(self, key, device, topic, doorbell = None, function = None):
-        super().__init__(key, device, topic)
+    def __init__(self, key, config_entity, topic, doorbell = None, function = None):
+        super().__init__(key, config_entity, topic)
         self.__doorbell = doorbell
         self.__function = function
 
@@ -246,8 +268,8 @@ class Button(Device):
 ##########################################################
 class Switch(Device):
 ##########################################################
-    def __init__(self, key, device, topic, doorbell = None, function = None):
-        super().__init__(key, device, topic)
+    def __init__(self, key, config_entity, topic, doorbell = None, function = None):
+        super().__init__(key, config_entity, topic)
         self.__state = -1
         self.__doorbell = doorbell
         self.__function = function
@@ -271,8 +293,8 @@ class Switch(Device):
 ##########################################################
 class Light(Device):
 ##########################################################
-    def __init__(self, key, device, topic):
-        super().__init__(key, device, topic)
+    def __init__(self, key, config_entity, topic):
+        super().__init__(key, config_entity, topic)
         self.__state = -1
 
     @property
@@ -286,8 +308,8 @@ class Light(Device):
 ##########################################################
 class Sensor(Device):
 ##########################################################
-    def __init__(self, key, device, topic, state = -1): #, doorbell = None, function = None):
-        super().__init__(key, device, topic)
+    def __init__(self, key, config_entity, topic, state = -1): #, doorbell = None, function = None):
+        super().__init__(key, config_entity, topic)
         self.__state = state
 #        self.__doorbell = doorbell
 #        self.__function = function
@@ -311,8 +333,8 @@ class Sensor(Device):
 ##########################################################
 class Blind(Device):
 ##########################################################
-    def __init__(self, key, device, topic):
-        super().__init__(key, device, topic)
+    def __init__(self, key, config_entity, topic):
+        super().__init__(key, config_entity, topic)
         self.__position = -1
         self.__position_open = -1
         self.__position_closed = -1
@@ -336,8 +358,8 @@ class Blind(Device):
 ##########################################################
 class Speaker(Device):
 ##########################################################
-    def __init__(self, key, device, topic):
-        super().__init__(key, device, topic)
+    def __init__(self, key, config_entity, topic):
+        super().__init__(key, config_entity, topic)
 
 
 
@@ -360,19 +382,6 @@ class SwitchF(Enum):
 ##########################################################
 #    CALLREQUEST = 1
 #    INPROGRESS = 2
-
-##########################################################
-class AlarmF(Enum):
-##########################################################
-    DISARM = 0
-    DISARMING = 1
-    ARM_HOME = 2
-    ARM_AWAY = 3
-    ARMING = 4
-    TRIGGER = 5
-    ARMED_HOME = 6
-    ARMED_AWAY = 7
-    TRIGGERED = 8
 
 
 ##########################################################

@@ -1,12 +1,9 @@
 import os
-import asyncio
 import aiomqtt
 import logging
 import sys
 import json
 
-from time import time
-from base64 import b64encode
 from devices import *
 from config import load_rtek_config
 
@@ -19,16 +16,12 @@ sensors = None
 blinds = None
 speakers = None
 cameras = None
-alarms = None
 
 mqttTxQueue = asyncio.Queue()
 rtekTxQueue = asyncio.Queue()
 
 rtek_poll_received = False
 debug = 0
-
-cameraMaxFps = 0
-cameraSecondsOn = 0
 baseTopic = ''
 
 handler = logging.StreamHandler(sys.stdout)
@@ -39,49 +32,6 @@ handler.setFormatter(formatter)
 log = logging.getLogger()
 log.setLevel(logging.DEBUG)
 log.addHandler(handler)
-
-
-##########################################################
-async def async_b64encode(data: bytes):
-##########################################################
-    loop = asyncio.get_running_loop()
-    # Offload CPU-heavy task to a thread pool
-    return await loop.run_in_executor(None, b64encode, data)
-
-last_time = time()
-is_processing = False
-##########################################################
-async def throttle_publish(topic, doorbell_name, data: bytes):
-##########################################################
-    global is_processing
-    global last_time
-
-    # wait for previous instance to finish
-    while is_processing:
-        await asyncio.sleep(0.01)
-    is_processing = True
-
-    # throtle images per second to cameraMaxFps
-    time_now = time()
-    millisecs_elapsed = (time_now - last_time) * 1000
-    millisecs_per_image = 1000 / cameraMaxFps
-
-    if millisecs_elapsed < millisecs_per_image:
-        await asyncio.sleep((millisecs_per_image - millisecs_elapsed) / 1000) # in seconds
-
-    # Send to Rtek - request new image
-    packet ='fa 02 00 44 ' + rtek_hex_block('RequestServiceOnDemand', f'VideoDoorUndecodedImageOnDemand#{doorbell_name}')
-    rtekTxQueue.put_nowait(packet)
-
-    if (debug > 0):
-        log.info(f'================> Request new Image for: {doorbell_name}')
-
-    # send to Mqtt - publish image received
-    image = await async_b64encode(data)
-    mqttTxQueue.put_nowait([topic + '/image', image, 0, True])
-
-    last_time = time()
-    is_processing = False
 
 
 
@@ -135,8 +85,6 @@ async def start_mqtt(config):
 ##########################################################
 async def mqtt_listen(mqtt_tg, client):
 ##########################################################
-    #global rtekTxQueue
-
     try:
         async for message in client.messages:
             array = str(message.topic).split('/')
@@ -152,15 +100,6 @@ async def mqtt_listen(mqtt_tg, client):
                     log.info (f'---> MQTT received - type: {entity_type}, key: {entity_key}, {entity_topic}: ...jpeg...')
 
             match entity_type:
-                case 'alarm':
-                    if entity_topic == 'set':
-                        alarm = alarms[entity_key]
-                        alarm.handle_mqtt_alarm_state(
-                            debug, log, mqttTxQueue, rtekTxQueue, payload)
-
-                        if (debug > 0):
-                            log.info (f'========> ALARM {payload}: {alarm.name}')
-
                 case 'sensor':
                     if entity_topic == 'state':
                         sensor = sensors[entity_key]
@@ -238,8 +177,6 @@ async def mqtt_listen(mqtt_tg, client):
 ##########################################################
 async def mqtt_publish(mqtt_tg, client):
 ##########################################################
-    global mqttTxQueue
-
     try:
         while True:
             msg = await mqttTxQueue.get()
@@ -278,7 +215,6 @@ class RtekClient(asyncio.Protocol):
         self.block = bytearray()
         self.blockLen = 0
         self.current_call_doorbell = None
-        self.cameraOn_start = 0
 
     ############################################
     def connection_made(self, transport):
@@ -412,7 +348,7 @@ class RtekClient(asyncio.Protocol):
                     mqttTxQueue.put_nowait([speakers[key].topic + '/state', 'OFF', 0, True])
 
                     if (debug > 0):
-                        log.info("---> RTEK received - Speaker: " + speakers[key].label + ' PRESSED')
+                        log.info(f'---> RTEK received - Speaker: {speakers[key].label} PRESSED')
                 except:
                     pass
             # end - speakers
@@ -435,29 +371,19 @@ class RtekClient(asyncio.Protocol):
                         # found doorbell
                         doorbell = camera.doorbell
 
-                        if doorbell.active.state == 1:
+                        if doorbell.ison_switch.state == 1:
                             call_inprogress = self.current_call_doorbell is not None
 
-                            if call_inprogress:
-                                asyncio.ensure_future(throttle_publish(camera.topic, doorbell_name, self.block[imageStart :]))
+                            if call_inprogress or time() - camera.ison_time < camera.maxsecondson:
+                                asyncio.ensure_future(
+                                    camera.handle_new_image(log, debug, mqttTxQueue, rtekTxQueue, self.block[imageStart :]))
 
                             else:
-                                if self.cameraOn_start == 0:
-                                    # 1st frame for this period while not in progress
-                                    self.cameraOn_start = time()
-
-                                if time() - self.cameraOn_start < cameraSecondsOn:
-                                    asyncio.ensure_future(throttle_publish(camera.topic, doorbell_name, self.block[imageStart :]))
-
-                                else:
-                                    # reset for next period
-                                    self.cameraOn_start = 0
-
-                                    # set camera OFF
-                                    mqttTxQueue.put_nowait([doorbell.active.topic + '/set', 'OFF', 0, False])
+                                # set camera OFF
+                                mqttTxQueue.put_nowait([doorbell.ison_switch.topic + '/set', 'OFF', 0, False])
 
                             # end - if call_inprogress:
-                        # end - if doorbell.active.state == 1:
+                        # end - if doorbell.ison_switch.state == 1:
 
                         break
                     # end -if camera.doorbell.name == doorbell_name:
@@ -493,7 +419,7 @@ class RtekClient(asyncio.Protocol):
                                 self.current_call_doorbell = doorbell
 
                                 # set camera ON
-                                mqttTxQueue.put_nowait([doorbell.active.topic + '/set', 'ON', 0, False])
+                                mqttTxQueue.put_nowait([doorbell.ison_switch.topic + '/set', 'ON', 0, False])
 
                                 # set inprogress OFF, incoming ON
                                 mqttTxQueue.put_nowait([doorbell.inprogress.topic + '/state', 'OFF', 0, False])
@@ -684,8 +610,6 @@ async def start_rtek(config):
 ##########################################################
 async def rtek_publish(rtek_tg, transport):
 ##########################################################
-    #global rtekTxQueue
-
     try:
         while True:
             msg = await rtekTxQueue.get()
@@ -749,8 +673,6 @@ async def rtek_polling(rtek_tg):
 def load_addon_config():
 ##########################################################
     global debug
-    global cameraMaxFps
-    global cameraSecondsOn
     global baseTopic
 
     addonConfig = dict()
@@ -763,8 +685,6 @@ def load_addon_config():
         exit(1)
 
     debug = addonConfig["debug"]
-    cameraMaxFps = addonConfig["cameraMaxFps"]
-    cameraSecondsOn = addonConfig["cameraSecondsOn"]
     baseTopic = addonConfig['mqttBaseTopic']
 
     return addonConfig
@@ -786,7 +706,6 @@ async def main():
 ##########################################################
     global doorbells
     global cameras
-    global alarms
     global buttons
     global switches
     global lights
@@ -798,11 +717,10 @@ async def main():
 
     addonConfig = load_addon_config()
 
-    devices = await load_rtek_config(log, mqttTxQueue, baseTopic)
+    devices = await load_rtek_config(log, addonConfig, mqttTxQueue, baseTopic)
     if devices is not None:
         doorbells = devices['doorbells']
         cameras = devices['cameras']
-        alarms = devices['alarms']
         buttons = devices['buttons']
         switches = devices['switches']
         lights = devices['lights']
