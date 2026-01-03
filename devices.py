@@ -355,13 +355,6 @@ class Blind(Device):
     def position_closed(self):
         return self.__position_closed
 
-##########################################################
-class Speaker(Device):
-##########################################################
-    def __init__(self, key, config_entity, topic):
-        super().__init__(key, config_entity, topic)
-
-
 
 
 ##########################################################

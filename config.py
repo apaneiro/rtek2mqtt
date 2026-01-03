@@ -15,7 +15,6 @@ async def load_rtek_config(log, addonConfig, mqttTxQueue, baseTopic):
     lights = dict()
     sensors = dict()
     blinds = dict()
-    speakers = dict()
     cameras = dict()
 
     try:
@@ -179,28 +178,13 @@ async def load_rtek_config(log, addonConfig, mqttTxQueue, baseTopic):
     else:
         log.info('INFO: empty blinds config section')
 
-    section = None
-    try:
-        section = rtekConfig['speakers']
-    except:
-        log.info('INFO: config section missing - speakers')
-    if isinstance(section, dict):
-        for key, entity in section.items():
-            topic = mqtt_entity_topic(baseTopic, key, 'speaker')
-            speakers[key] = Speaker(key, entity, topic)
-            mqttTxQueue.put_nowait(
-                mqtt_discovery(baseTopic, key, 'speaker', entity))
-    else:
-        log.info('INFO: empty speakers config section')
-
     return {'doorbells': doorbells,
             'cameras': cameras,
             'buttons': buttons,
             'sensors': sensors,
             'switches': switches,
             'lights': lights,
-            'blinds': blinds,
-            'speakers': speakers
+            'blinds': blinds
             }
 
 '''
@@ -336,16 +320,6 @@ def mqtt_discovery(baseTopic, key, entity_type, entity, device = None):
             payload["set_position_topic"] = deviceTopic + '/set_position'
             payload_origin["url"] = "https://www.home-assistant.io/integrations/cover.mqtt/"
             payload["name"] = name
-        case 'speaker':
-            platform = 'device_automation'
-            payload["automation_type"] = 'trigger'
-            payload["type"] = label
-            payload["subtype"] = name
-            payload["topic"] = deviceTopic + "/state"
-            payload["payload"] = 'ON'
-            payload_origin["url"] = "https://www.home-assistant.io/integrations/device_trigger.mqtt/"
-            payload_device["name"] = 'Audio - ' + name + ' ' + label.capitalize()
-            #payload["default_entity_id"] = f"rtek_{entity_type}_{key}"
         case 'camera':
             platform = 'camera'
             #payload["image_encoding"] = "b64"

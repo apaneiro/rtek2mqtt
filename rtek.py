@@ -14,7 +14,6 @@ switches = None
 lights = None
 sensors = None
 blinds = None
-speakers = None
 cameras = None
 
 mqttTxQueue = asyncio.Queue()
@@ -270,90 +269,78 @@ class RtekClient(asyncio.Protocol):
             # if (d != 0xab):
             #   invalidate message ?? not for images
 
-            ###############
-            # poll
-            if self.blockLen == 1 and blockHeader == pollHeader:
-                rtek_poll_received = True
+            ############################################
+            if blockHeader == pollHeader:
+            ############################################
+                if self.blockLen == 1:
+                    rtek_poll_received = True
 
-                if (debug > 0):
-                    log.info('Poll received')
-            # end poll
-            ###############
+                    if (debug > 0):
+                        log.info('Poll received')
 
-            ###############
-            # switches, lights, sensors and blinds
-            elif self.blockLen == 9 and blockHeader == deviceHeader:
-                key = (self.block[10] << 8) + self.block[11]
-                state = (self.block[14] << 8) + self.block[15]
-
-                ###############
-                # switch?
-                try:
-                    if state != switches[key].state:
-                        switches[key].state = state
-                        mqttTxQueue.put_nowait([switches[key].topic + '/state', 'ON' if state == 1 else 'OFF', 0, True])
-
-                        if debug > 0:
-                            log.info("---> RTEK received - Switch: " + switches[key].label + " " + ("OFF" if state == 0 else "ON") + "\t" + switches[key].name)
-                except:
+            ############################################
+            elif blockHeader == deviceHeader:
+            ############################################
+                if self.blockLen == 9:
+                    key = int.from_bytes(self.block[8 : 12])
+                    state = int.from_bytes(self.block[12 : 16])
+                    #key = (self.block[10] << 8) + self.block[11]
+                    #state = (self.block[14] << 8) + self.block[15]
 
                     ###############
-                    # light?
+                    # switch?
                     try:
-                        if state != lights[key].state:
-                            lights[key].state = state
-                            mqttTxQueue.put_nowait([lights[key].topic + '/state', 'ON' if state == 1 else 'OFF', 0, True])
+                        if state != switches[key].state:
+                            switches[key].state = state
+                            mqttTxQueue.put_nowait([switches[key].topic + '/state', 'ON' if state == 1 else 'OFF', 0, True])
 
                             if debug > 0:
-                                log.info("---> RTEK received - Light: " + lights[key].label + " " + ("OFF" if state == 0 else "ON") + "\t" + lights[key].name)
+                                log.info("---> RTEK received - Switch: " + switches[key].label + " " + ("OFF" if state == 0 else "ON") + "\t" + switches[key].name)
                     except:
 
                         ###############
-                        # sensor?
+                        # light?
                         try:
-                            if state != sensors[key].state:
-                                sensors[key].state = state
-                                mqttTxQueue.put_nowait([sensors[key].topic + '/state', 'ON' if state == 1 else 'OFF', 0, False])
+                            if state != lights[key].state:
+                                lights[key].state = state
+                                mqttTxQueue.put_nowait([lights[key].topic + '/state', 'ON' if state == 1 else 'OFF', 0, True])
 
                                 if debug > 0:
-                                    log.info("---> RTEK received - Sensor: " + sensors[key].label + " " + ("OFF" if state == 0 else "ON") + "\t" + sensors[key].name)
+                                    log.info("---> RTEK received - Light: " + lights[key].label + " " + ("OFF" if state == 0 else "ON") + "\t" + lights[key].name)
                         except:
 
                             ###############
-                            # blind position?
+                            # sensor?
                             try:
-                                if state != blinds[key - 2].position:
-                                    blinds[key - 2].position = state
-                                    mqttTxQueue.put_nowait([blinds[key - 2].topic + '/position', state, 0, True])
+                                if state != sensors[key].state:
+                                    sensors[key].state = state
+                                    mqttTxQueue.put_nowait([sensors[key].topic + '/state', 'ON' if state == 1 else 'OFF', 0, False])
 
                                     if debug > 0:
-                                        log.info("---> RTEK received - Blind Position: " + blinds[key - 2].label + " " + "{0:d}".format(state) + "\t" + blinds[key - 2].name)
+                                        log.info("---> RTEK received - Sensor: " + sensors[key].label + " " + ("OFF" if state == 0 else "ON") + "\t" + sensors[key].name)
                             except:
-                                pass
-            # end - lights, sensors and blinds
-            ###############
 
-            ###############
-            # speakers
-            elif self.blockLen > 9 and blockHeader == speakerHeader:
-                key = (self.block[12] - 0x30) * 10000 + (self.block[13] - 0x30) * 1000 + (self.block[14] - 0x30) * 100 + (self.block[15] - 0x30) * 10
-                if self.blockLen > 20:
-                    key += 1
+                                ###############
+                                # blind position?
+                                try:
+                                    if state != blinds[key - 2].position:
+                                        blinds[key - 2].position = state
+                                        mqttTxQueue.put_nowait([blinds[key - 2].topic + '/position', state, 0, True])
 
-                try:
-                    mqttTxQueue.put_nowait([speakers[key].topic + '/state', 'ON', 0, True])
-                    mqttTxQueue.put_nowait([speakers[key].topic + '/state', 'OFF', 0, True])
+                                        if debug > 0:
+                                            log.info("---> RTEK received - Blind Position: " + blinds[key - 2].label + " " + "{0:d}".format(state) + "\t" + blinds[key - 2].name)
+                                except:
+                                    pass
 
-                    if (debug > 0):
-                        log.info(f'---> RTEK received - Speaker: {speakers[key].label} PRESSED')
-                except:
-                    pass
-            # end - speakers
-            ###############
+            ############################################
+            elif blockHeader == speakerHeader:
+            ############################################
+                if debug > 1:
+                    log.info('================> SPEAKER PACKET')
 
-            ###############
-            # image
+            ############################################
             elif blockHeader == imageHeader:
+            ############################################
                 field1Len = int.from_bytes(self.block[8 : 12])
                 field1Start = 17
 
@@ -385,12 +372,10 @@ class RtekClient(asyncio.Protocol):
                         break
                     # end -if camera.doorbell.name == doorbell_name:
                 # end - for key, camera in cameras.items():
-            # end - image
-            ###############
 
-            ###############
-            # doorbell
+            ############################################
             elif blockHeader == doorbellHeader:
+            ############################################
                 pointer = 8
 
                 field1Len = int.from_bytes(self.block[pointer : pointer + 4])
@@ -529,30 +514,23 @@ class RtekClient(asyncio.Protocol):
                     ###############
                     case _:
                         log.info("================> UNKNOWN 44: " + ''.join('{:02x}'.format(x) for x in self.block))
-            # end - doorbell
-            ###############
 
-            ###############
-            # audio
+            ############################################
             elif blockHeader == audioHeader:
+            ############################################
                 if debug > 1:
                     log.info('================> AUDIO PACKET')
-            # end - audio
-            ###############
 
-            ###############
-            # Unknown
+            ############################################
             else:
+            ############################################
                 # log packet
                 if (debug > 1 and dataLen > 0):
                     log.info("================> DEBUG - UNKNOWN: " + ''.join('{:02x}'.format(x) for x in self.block))
-            # end - unknown
-            ###############
 
             self.block.clear()
             self.blockLen = 0
         # end - for d in data:
-        ###############
 
 
     ############################################
@@ -708,7 +686,6 @@ async def main():
     global lights
     global sensors
     global blinds
-    global speakers
 
     log.info("---> Starting")
 
@@ -723,7 +700,6 @@ async def main():
         lights = devices['lights']
         sensors = devices['sensors']
         blinds = devices['blinds']
-        speakers = devices['speakers']
 
         try:
             async with asyncio.TaskGroup() as tg:
