@@ -234,19 +234,19 @@ class Camera(Device):
             log.info(f'================> Request new Image for: {doorbell_name}')
 
         # send to Mqtt - publish image received
-        image = await self.async_b64encode(data)
-        #image = b64encode(data)
-        mqttTxQueue.put_nowait([topic + '/image', image, 0, True])
+        mqttTxQueue.put_nowait([topic, data, 0, True])
+        #image = await self.async_b64encode(data)
+        #mqttTxQueue.put_nowait([topic, image, 0, True])
 
         last_image_time = time()
         is_processing = False
 
     ######################################
-    async def async_b64encode(self, data: bytes):
+#    async def async_b64encode(self, data: bytes):
     ######################################
-        loop = asyncio.get_running_loop()
+#        loop = asyncio.get_running_loop()
         # Offload CPU-heavy task to a thread pool
-        return await loop.run_in_executor(None, b64encode, data)
+#        return await loop.run_in_executor(None, b64encode, data)
 
 
 ##########################################################

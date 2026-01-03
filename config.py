@@ -45,7 +45,7 @@ async def load_rtek_config(log, addonConfig, mqttTxQueue, baseTopic):
             doorbell_entity = entity.copy()
             doorbell_entity['name'] = f'Camera {name}'
             key += 1
-            topic = mqtt_entity_topic(baseTopic, key, 'camera')
+            topic = f"{baseTopic}-camera/{key}/image"
             cameraMaxFps = addonConfig["cameraMaxFps"]
             cameraSecondsOn = addonConfig["cameraSecondsOn"]
             cameras[key] = Camera(key, doorbell_entity, topic, maxfps = cameraMaxFps, maxsecondson = cameraSecondsOn, doorbell = doorbell)
@@ -254,7 +254,7 @@ def mqtt_discovery(baseTopic, key, entity_type, entity, device = None):
         device_model = type(device).__name__
         device_name = device.name
         device_label = device.label
-        device_key = device.key # + 1 # assign id of the camera
+        device_key = device.key
 
     payload_device = dict()
     payload_device["identifiers"] = [ str(device_key) ]
@@ -347,12 +347,12 @@ def mqtt_discovery(baseTopic, key, entity_type, entity, device = None):
             payload_device["name"] = 'Audio - ' + name + ' ' + label.capitalize()
             #payload["default_entity_id"] = f"rtek_{entity_type}_{key}"
         case 'camera':
-            platform = 'image'
-            payload["content_type"] = "image/jpeg"
-            payload["image_encoding"] = "b64"
-            payload["image_topic"] = deviceTopic + "/image"
-            payload_origin["url"] = "https://www.home-assistant.io/integrations/image.mqtt/"
+            platform = 'camera'
+            #payload["image_encoding"] = "b64"
+            payload["topic"] = f"{baseTopic}-camera/{key}/image"
+            payload_origin["url"] = "https://www.home-assistant.io/integrations/camera.mqtt/"
             payload["name"] = name
+
 
     discovery_topic = f"homeassistant/{platform}/{key}/rtek/config"
     payload["default_entity_id"] = f"{platform}.rtek_{entity_type}_{label.lower()}"

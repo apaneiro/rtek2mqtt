@@ -94,10 +94,7 @@ async def mqtt_listen(mqtt_tg, client):
             payload = str(message.payload.decode())
 
             if (debug > 0):
-                if entity_type != 'camera':
-                    log.info (f'---> MQTT received - type: {entity_type}, key: {entity_key}, {entity_topic}: {payload}')
-                elif (debug > 1):
-                    log.info (f'---> MQTT received - type: {entity_type}, key: {entity_key}, {entity_topic}: ...jpeg...')
+                log.info (f'---> MQTT received - type: {entity_type}, key: {entity_key}, {entity_topic}: {payload}')
 
             match entity_type:
                 case 'sensor':
