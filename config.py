@@ -45,9 +45,10 @@ async def load_rtek_config(log, addonConfig, mqttTxQueue, baseTopic):
             doorbell_entity['name'] = f'Camera {name}'
             key += 1
             topic = f"{baseTopic}-camera/{key}/image"
-            cameraMaxFps = addonConfig["cameraMaxFps"]
+            #cameraMaxFps = addonConfig["cameraMaxFps"]
             cameraSecondsOn = addonConfig["cameraSecondsOn"]
-            cameras[key] = Camera(key, doorbell_entity, topic, maxfps = cameraMaxFps, maxsecondson = cameraSecondsOn, doorbell = doorbell)
+            #cameras[key] = Camera(key, doorbell_entity, topic, maxfps = cameraMaxFps, maxsecondson = cameraSecondsOn, doorbell = doorbell)
+            cameras[key] = Camera(key, doorbell_entity, topic, maxsecondson = cameraSecondsOn, doorbell = doorbell)
             mqttTxQueue.put_nowait(
                 mqtt_discovery(baseTopic, key, 'camera', doorbell_entity, device = doorbell))
 

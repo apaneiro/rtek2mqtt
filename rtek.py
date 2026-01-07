@@ -211,6 +211,7 @@ class RtekClient(asyncio.Protocol):
         self.block = bytearray()
         self.blockLen = 0
         self.current_call_doorbell = None
+        self.pollcount = 0
 
     ############################################
     def connection_made(self, transport):
@@ -278,6 +279,20 @@ class RtekClient(asyncio.Protocol):
                     if (debug > 0):
                         log.info('Poll received')
 
+                    if doorbells is not None:
+                        for doorbell in doorbells.values():
+                            if doorbell.ison_switch.state == 0:
+                                # new image every 60 sec
+                                self.pollcount += 1
+                                if self.pollcount > 5:
+                                    self.pollcount = 0
+
+                                    # Send to Rtek - request new image
+                                    packet ='fa 02 00 44 ' + rtek_hex_block('RequestServiceOnDemand', f'VideoDoorUndecodedImageOnDemand#{doorbell.name}')
+                                    rtekTxQueue.put_nowait(packet)
+                            else:
+                                self.pollcount = 0
+
             ############################################
             elif blockHeader == deviceHeader:
             ############################################
@@ -333,12 +348,6 @@ class RtekClient(asyncio.Protocol):
                                     pass
 
             ############################################
-            elif blockHeader == speakerHeader:
-            ############################################
-                if debug > 1:
-                    log.info('================> SPEAKER PACKET')
-
-            ############################################
             elif blockHeader == imageHeader:
             ############################################
                 field1Len = int.from_bytes(self.block[8 : 12])
@@ -355,18 +364,31 @@ class RtekClient(asyncio.Protocol):
                         # found doorbell
                         doorbell = camera.doorbell
 
+                        # send to Mqtt - publish image received
+                        topic = camera.topic
+                        mqttTxQueue.put_nowait([topic, self.block[imageStart :], 0, True])
+
+                        if (debug > 0):
+                            log.info(f'================> New Image for: {doorbell.name}')
+
                         if doorbell.ison_switch.state == 1:
                             call_inprogress = self.current_call_doorbell is not None
 
                             if call_inprogress or time() - camera.ison_time < camera.maxsecondson:
-                                asyncio.ensure_future(
-                                    camera.handle_new_image(log, debug, mqttTxQueue, rtekTxQueue, self.block[imageStart :]))
+#                                asyncio.ensure_future(
+#                                    camera.handle_new_image(log, debug, rtekTxQueue))
+
+                                # Send to Rtek - request new image
+                                packet ='fa 02 00 44 ' + rtek_hex_block('RequestServiceOnDemand', f'VideoDoorUndecodedImageOnDemand#{doorbell.name}')
+                                rtekTxQueue.put_nowait(packet)
+
+                                if (debug > 1):
+                                    log.info(f'================> Request new Image for: {doorbell.name}')
 
                             else:
                                 # set camera OFF
                                 mqttTxQueue.put_nowait([doorbell.ison_switch.topic + '/set', 'OFF', 0, False])
 
-                            # end - if call_inprogress:
                         # end - if doorbell.ison_switch.state == 1:
 
                         break
@@ -393,6 +415,7 @@ class RtekClient(asyncio.Protocol):
                 match field1:
                     ###############
                     case 'StartCall':
+                    ###############
                         if debug > 0:
                             log.info(f'========> Rtek START CALL: {field2}')
 
@@ -411,6 +434,7 @@ class RtekClient(asyncio.Protocol):
 
                     ###############
                     case 'CallAccepted':
+                    ###############
                         if debug > 0:
                             log.info(f'========> Rtek CALL ACCEPTED: {field2}')
 
@@ -430,6 +454,7 @@ class RtekClient(asyncio.Protocol):
 
                     ###############
                     case 'CallInprogress':
+                    ###############
                         if debug > 0:
                             log.info(f'========> Rtek CALL IN PROGRESS: {field2}')
 
@@ -449,12 +474,14 @@ class RtekClient(asyncio.Protocol):
 
                     ###############
                     case 'EventLog':
+                    ###############
                         if debug > 0:
                             eventLog = field2
                             log.info(f'========> Rtek EVENTLOG: {eventLog}')
 
                     ###############
                     case 'CallTerminated':
+                    ###############
                         if self.current_call_doorbell is not None:
                             doorbell = self.current_call_doorbell
 
@@ -477,6 +504,7 @@ class RtekClient(asyncio.Protocol):
 
                     ###############
                     case 'ServerVersion':
+                    ###############
                         log.info(f'================> Server Version')
                         if debug > 1:
                             log.info(field2)
@@ -485,6 +513,7 @@ class RtekClient(asyncio.Protocol):
 
                     ###############
                     case 'MainEventLogFile':
+                    ###############
                         log.info('================> Main Event Log')
                         if debug > 1:
                             log.info(field2)
@@ -493,6 +522,7 @@ class RtekClient(asyncio.Protocol):
 
                     ###############
                     case 'CamerasXMLFile':
+                    ###############
                         log.info('================> Cameras XML')
                         if debug > 1:
                             log.info(field2)
@@ -501,6 +531,7 @@ class RtekClient(asyncio.Protocol):
 
                     ###############
                     case 'VideoDoorsXMLFile':
+                    ###############
                         log.info('================> VideoDoors XML')
                         if debug > 1:
                             log.info(field2)
@@ -509,11 +540,13 @@ class RtekClient(asyncio.Protocol):
 
                     ###############
                     case 'AskCustomerSatisfactionLevel':
-                        pass
+                    ###############
+                        log.info('================> AskCustomerSatisfactionLevel')
 
                     ###############
                     case _:
-                        log.info("================> UNKNOWN 44: " + ''.join('{:02x}'.format(x) for x in self.block))
+                    ###############
+                        log.info("================> UNKNOWN DOORBELL PACKET: " + ''.join('{:02x}'.format(x) for x in self.block))
 
             ############################################
             elif blockHeader == audioHeader:
@@ -522,11 +555,17 @@ class RtekClient(asyncio.Protocol):
                     log.info('================> AUDIO PACKET')
 
             ############################################
+            elif blockHeader == speakerHeader:
+            ############################################
+                if debug > 1:
+                    log.info('================> SPEAKER PACKET')
+
+            ############################################
             else:
             ############################################
                 # log packet
                 if (debug > 1 and dataLen > 0):
-                    log.info("================> DEBUG - UNKNOWN: " + ''.join('{:02x}'.format(x) for x in self.block))
+                    log.info("================> UNKNOWN PACKET: " + ''.join('{:02x}'.format(x) for x in self.block))
 
             self.block.clear()
             self.blockLen = 0

@@ -158,10 +158,11 @@ class Doorbell(Device):
 ##########################################################
 class Camera(Device):
 ##########################################################
-    def __init__(self, key, config_entity, topic, maxfps, maxsecondson, doorbell = None):
+#    def __init__(self, key, config_entity, topic, maxfps, maxsecondson, doorbell = None):
+    def __init__(self, key, config_entity, topic, maxsecondson, doorbell = None):
         super().__init__(key, config_entity, topic)
         self.__doorbell = doorbell
-        self.__maxfps = maxfps
+#        self.__maxfps = maxfps
         self.__maxsecondson = maxsecondson
         self.__ison_time = 0
         self.__last_image_time = time()
@@ -195,16 +196,17 @@ class Camera(Device):
     def is_processing(self, value):
         self.__is_processing = value
 
-    @property
-    def maxfps(self):
-        return self.__maxfps
+#    @property
+#    def maxfps(self):
+#        return self.__maxfps
 
     @property
     def maxsecondson(self):
         return self.__maxsecondson
 
+'''
     ######################################
-    async def handle_new_image(self, log, debug, mqttTxQueue, rtekTxQueue, data: bytes):
+    async def handle_new_image(self, log, debug, rtekTxQueue):
     ######################################
         is_processing = self.is_processing
         last_image_time = self.last_image_time
@@ -233,21 +235,16 @@ class Camera(Device):
         if (debug > 0):
             log.info(f'================> Request new Image for: {doorbell_name}')
 
-        # send to Mqtt - publish image received
-        mqttTxQueue.put_nowait([topic, data, 0, True])
-        #image = await self.async_b64encode(data)
-        #mqttTxQueue.put_nowait([topic, image, 0, True])
-
         last_image_time = time()
         is_processing = False
 
     ######################################
-#    async def async_b64encode(self, data: bytes):
+    async def async_b64encode(self, data: bytes):
     ######################################
-#        loop = asyncio.get_running_loop()
+        loop = asyncio.get_running_loop()
         # Offload CPU-heavy task to a thread pool
-#        return await loop.run_in_executor(None, b64encode, data)
-
+        return await loop.run_in_executor(None, b64encode, data)
+'''
 
 ##########################################################
 class Button(Device):
