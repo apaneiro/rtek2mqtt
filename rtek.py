@@ -190,9 +190,9 @@ async def mqtt_listen(mqtt_tg, client):
                             hex_key = "%0.4x" % entity_key
                             hex_payload = '00'    # stopped
                             match payload:
-                                case 'opening':
+                                case 'CLOSE':
                                     hex_payload = '01'
-                                case 'closing':
+                                case 'OPEN':
                                     hex_payload = '02'
                             packet = f'fa 02 00 48 00 00 00 09 00 00 {hex_key} 00 00 00 {hex_payload} ab'
                             rtekTxQueue.put_nowait(packet)
