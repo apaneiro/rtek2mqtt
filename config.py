@@ -315,7 +315,7 @@ def mqtt_discovery(baseTopic, key, entity_type, entity, device = None):
                 payload["position_closed"] = entity['position_closed']
             except:
                 payload["position_closed"] = 0
-            #payload["state_topic"] = deviceTopic + '/state'        # A cover entity can be in states (open, opening, closed or closing).
+            payload["state_topic"] = deviceTopic + '/state'        # A cover entity can be in states (open, opening, closed or closing).
             payload["command_topic"] = deviceTopic + '/set'
             payload["position_topic"] = deviceTopic + '/position'   # If a position_topic is set, the cover’s position will be used to set the state to either open or closed state
             payload["set_position_topic"] = deviceTopic + '/set_position'

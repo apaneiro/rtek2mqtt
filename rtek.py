@@ -97,66 +97,112 @@ async def mqtt_listen(mqtt_tg, client):
 
             match entity_type:
                 case 'sensor':
-                    if entity_topic == 'state':
-                        sensor = sensors[entity_key]
-                        sensor.state = 1 if payload == 'ON' else 0
-
-                    if (debug > 0):
-                        log.info (f'========> SENSOR {payload}: {sensor.name}')
+                    match entity_topic:
+                        case 'state':
+                            try:
+                                sensor = sensors[entity_key]
+                                sensor.state = 1 if payload == 'ON' else 0
+                            except:
+                                pass
 
                 case 'button':
-                    if entity_topic == 'set' and payload == 'PRESS':
-                        button = buttons[entity_key]
-                        doorbell = button.doorbell
+                    match entity_topic:
+                        case 'set':
+                            if payload == 'PRESS':
+                                try:
+                                    # Doorbell button
+                                    button = buttons[entity_key]
+                                    doorbell  = button.doorbell
+                                    doorbell.handle_mqtt_button_set_press(
+                                        debug, log, mqttTxQueue, rtekTxQueue, button, payload)
 
-                        if doorbell is not None:        # Doorbell Button?
-                            doorbell.handle_mqtt_button_press(
-                                debug, log, mqttTxQueue, rtekTxQueue, button, payload)
+                                except:
+                                    # Rtek Button - none yet?
+                                    hex_key = "%0.4x" % entity_key
 
-                        else:
-                            # no Rtek buttons yet
-                            pass
+                                    hex_payload = '01'
+                                    packet = f'fa 02 00 48 00 00 00 09 00 00 {hex_key} 00 00 00 {hex_payload} ab'
+                                    rtekTxQueue.put_nowait(packet)
+
+                                    hex_payload = '00'
+                                    packet = f'fa 02 00 48 00 00 00 09 00 00 {hex_key} 00 00 00 {hex_payload} ab'
+                                    rtekTxQueue.put_nowait(packet)
 
                 case 'switch':
-                    if entity_topic == 'set':
-                        switch = switches[entity_key]
-                        doorbell = switch.doorbell
+                    match entity_topic:
+                        case 'state':
+                            try:
+                                switch = switches[entity_key]
+                                switch.state = 1 if payload == 'ON' else 0
+                            except:
+                                pass
 
-                        if doorbell is not None:    # Doorbell Switch
-                            doorbell.handle_mqtt_switch_state(
-                                debug, log, mqttTxQueue, rtekTxQueue, switch, payload)
+                        case 'set':
+                            try:
+                                # Dorbell Switch
+                                switch = switches[entity_key]
+                                doorbell = switch.doorbell
+                                doorbell.handle_mqtt_switch_set(
+                                    debug, log, mqttTxQueue, rtekTxQueue, switch, payload)
 
-                        else:       # Send to Rtek - switch
+                            except:
+                                # Rtek Switch
+                                hex_key = "%0.4x" % entity_key
+                                hex_payload = '01' if payload == 'ON' else '00'
+                                packet = f'fa 02 00 48 00 00 00 09 00 00 {hex_key} 00 00 00 {hex_payload} ab'
+                                rtekTxQueue.put_nowait(packet)
+
+                case 'light':
+                    match entity_topic:
+                        case 'state':
+                            try:
+                                light = lights[entity_key]
+                                light.state = 1 if payload == 'ON' else 0
+                            except:
+                                pass
+
+                        case 'set':
+                            # Rtek Light
+                            if entity_topic == 'set':
+                                hex_key = "%0.4x" % entity_key
+                                hex_payload = '01' if payload == 'ON' else '00'
+                                packet = f'fa 02 00 48 00 00 00 09 00 00 {hex_key} 00 00 00 {hex_payload} ab'
+                                rtekTxQueue.put_nowait(packet)
+
+                case 'blind':
+                    match entity_topic:
+                        case 'state':
+                            try:
+                                blind = blinds[entity_key]
+                                blind.state = 0 if payload == 'stopped' else 1 if payload == 'closing' else 2
+                            except:
+                                pass
+
+                        case 'position':
+                            try:
+                                blind = blinds[entity_key]
+                                blind.position = int(payload)
+                            except:
+                                pass
+
+                        case 'set':
+                            # Rtek Blind
                             hex_key = "%0.4x" % entity_key
-                            hex_payload = '01' if payload == 'ON' else '00'
+                            hex_payload = '00'    # stopped
+                            match payload:
+                                case 'opening':
+                                    hex_payload = '01'
+                                case 'closing':
+                                    hex_payload = '02'
                             packet = f'fa 02 00 48 00 00 00 09 00 00 {hex_key} 00 00 00 {hex_payload} ab'
                             rtekTxQueue.put_nowait(packet)
 
-                case 'light':       # Send to Rtek - light
-                    if entity_topic == 'set':
-                        hex_key = "%0.4x" % entity_key
-                        hex_payload = '01' if payload == 'ON' else '00'
-                        packet = f'fa 02 00 48 00 00 00 09 00 00 {hex_key} 00 00 00 {hex_payload} ab'
-                        rtekTxQueue.put_nowait(packet)
-
-                case 'blind':       # Send to Rtek - blind
-                    if entity_topic == 'set':
-                        hex_payload = '00'    # STOP
-                        hex_key = "%0.4x" % entity_key
-                        match payload:
-                            case 'OPEN':
-                                hex_payload = '01'
-                            case 'CLOSE':
-                                hex_payload = '02'
-                        packet = f'fa 02 00 48 00 00 00 09 00 00 {hex_key} 00 00 00 {hex_payload} ab'
-                        rtekTxQueue.put_nowait(packet)
-
-                    elif entity_topic == 'set_position':
-                        hex_key = "%0.4x" % (entity_key + 2)
-                        position = int(payload)
-                        hex_position = "%0.4x" % position
-                        packet = f'fa 02 00 48 00 00 00 09 00 00 {hex_key} 00 00 {hex_position} ab'
-                        rtekTxQueue.put_nowait(packet)
+                        case 'set_position':
+                            hex_key = "%0.4x" % (entity_key + 2)
+                            position = int(payload)
+                            hex_position = "%0.4x" % position
+                            packet = f'fa 02 00 48 00 00 00 09 00 00 {hex_key} 00 00 {hex_position} ab'
+                            rtekTxQueue.put_nowait(packet)
 
     except TerminateTaskGroup:
         pass
@@ -305,47 +351,74 @@ class RtekClient(asyncio.Protocol):
                     ###############
                     # switch?
                     try:
-                        if state != switches[key].state:
-                            switches[key].state = state
-                            mqttTxQueue.put_nowait([switches[key].topic + '/state', 'ON' if state == 1 else 'OFF', 0, True])
-
-                            if debug > 0:
-                                log.info("---> RTEK received - Switch: " + switches[key].label + " " + ("OFF" if state == 0 else "ON") + "\t" + switches[key].name)
+                        switch_state = switches[key].state
+                        mqtt_state = 'ON' if state == 1 else 'OFF'
+                        topic = switches[key].topic + '/state'
+                        label = switches[key].label
+                        name = switches[key].name
+                        if state != switch_state:
+                            mqttTxQueue.put_nowait([topic, mqtt_state, 0, True])
+                        if debug > 0:
+                            log.info(f'---> RTEK received - Switch: {switches[key].label} {mqtt_state}\t{switches[key].name}')
                     except:
 
                         ###############
                         # light?
                         try:
-                            if state != lights[key].state:
-                                lights[key].state = state
-                                mqttTxQueue.put_nowait([lights[key].topic + '/state', 'ON' if state == 1 else 'OFF', 0, True])
-
-                                if debug > 0:
-                                    log.info("---> RTEK received - Light: " + lights[key].label + " " + ("OFF" if state == 0 else "ON") + "\t" + lights[key].name)
+                            light_state = lights[key].state
+                            mqtt_state = 'ON' if state == 1 else 'OFF'
+                            topic = lights[key].topic + '/state'
+                            label = lights[key].label
+                            name = lights[key].name
+                            if state != light_state:
+                                mqttTxQueue.put_nowait([topic, mqtt_state, 0, True])
+                            if debug > 0:
+                                log.info(f'---> RTEK received - Light: {label} {mqtt_state}\t{name}')
                         except:
 
                             ###############
                             # sensor?
                             try:
-                                if state != sensors[key].state:
-                                    sensors[key].state = state
-                                    mqttTxQueue.put_nowait([sensors[key].topic + '/state', 'ON' if state == 1 else 'OFF', 0, False])
-
-                                    if debug > 0:
-                                        log.info("---> RTEK received - Sensor: " + sensors[key].label + " " + ("OFF" if state == 0 else "ON") + "\t" + sensors[key].name)
+                                sensor_state = sensors[key].state
+                                mqtt_state = 'ON' if state == 1 else 'OFF'
+                                topic = sensors[key].topic + '/state'
+                                label = sensors[key].label
+                                name = sensors[key].name
+                                if state != sensor_state:
+                                    mqttTxQueue.put_nowait([topic, mqtt_state, 0, False])
+                                if debug > 0:
+                                    log.info(f'---> RTEK received - Sensor: {label} {mqtt_state}\t{name}')
                             except:
 
                                 ###############
-                                # blind position?
+                                # blind?
                                 try:
-                                    if state != blinds[key - 2].position:
-                                        blinds[key - 2].position = state
-                                        mqttTxQueue.put_nowait([blinds[key - 2].topic + '/position', state, 0, True])
-
-                                        if debug > 0:
-                                            log.info("---> RTEK received - Blind Position: " + blinds[key - 2].label + " " + "{0:d}".format(state) + "\t" + blinds[key - 2].name)
+                                    blind_state = blinds[key].state
+                                    mqtt_state = 'stopped' if state == 0 else 'opening' if state == 1 else 'closing'
+                                    topic = blinds[key].topic + '/state'
+                                    label = blinds[key].label
+                                    name = blinds[key].name
+                                    if state != blind_state:
+                                        mqttTxQueue.put_nowait([topic, mqtt_state, 0, True])
+                                    if debug > 0:
+                                        log.info(f'---> RTEK received - Blind State: {label} {mqtt_state}\t{name}')
                                 except:
-                                    pass
+
+                                    ###############
+                                    # blind position?
+                                    try:
+                                        blind_position = blinds[key - 2].position
+                                        mqtt_state = 'stopped' if state == 0 else 'closing' if state == 1 else 'closing'
+                                        log_state = "{0:d}".format(state)
+                                        topic = blinds[key - 2].topic + '/position'
+                                        label = blinds[key - 2].label
+                                        name = blinds[key - 2].name
+                                        if state != blind_position:
+                                            mqttTxQueue.put_nowait([topic, state, 0, True])
+                                        if debug > 0:
+                                            log.info(f'---> RTEK received - Blind Position: {label} {log_state}\t{name}')
+                                    except:
+                                        pass
 
             ############################################
             elif blockHeader == imageHeader:

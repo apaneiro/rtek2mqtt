@@ -78,7 +78,7 @@ class Doorbell(Device):
         self.__inprogress = value
 
     ######################################
-    def handle_mqtt_button_press(self, debug, log, mqttTxQueue, rtekTxQueue, button, payload):
+    def handle_mqtt_button_set_press(self, debug, log, mqttTxQueue, rtekTxQueue, button, payload):
     ######################################
         if (debug > 0):
             log.info (f'========> BUTTON {payload}: {button.name}')
@@ -116,15 +116,16 @@ class Doorbell(Device):
                     mqttTxQueue.put_nowait([doorbell.ison_switch.topic + '/set', 'OFF', 0, False])
 
     ######################################
-    def handle_mqtt_switch_state(self, debug, log, mqttTxQueue, rtekTxQueue, switch, payload):
+    def handle_mqtt_switch_set(self, debug, log, mqttTxQueue, rtekTxQueue, switch, payload):
     ######################################
         if (debug > 0):
             log.info (f'========> SWITCH {payload}: {switch.name}')
 
         doorbell = self
 
-        # Update state
+        # Update local state
         switch.state = 1 if payload == 'ON' else 0
+        # Update mqtt state
         mqttTxQueue.put_nowait([switch.topic + '/state', payload, 0, True])
 
         match switch.function:
@@ -332,9 +333,18 @@ class Blind(Device):
 ##########################################################
     def __init__(self, key, config_entity, topic):
         super().__init__(key, config_entity, topic)
+        self.__state = -1
         self.__position = -1
         self.__position_open = -1
         self.__position_closed = -1
+
+    @property
+    def state(self):
+        return self.__state
+
+    @state.setter
+    def state(self, value):
+        self.__state = value
 
     @property
     def position(self):
