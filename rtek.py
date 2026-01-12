@@ -394,7 +394,7 @@ class RtekClient(asyncio.Protocol):
                                 # blind?
                                 try:
                                     blind_state = blinds[key].state
-                                    mqtt_state = 'stopped' if state == 0 else 'opening' if state == 1 else 'closing'
+                                    mqtt_state = 'stopped' if state == 0 else 'closing' if state == 1 else 'opening'
                                     topic = blinds[key].topic + '/state'
                                     label = blinds[key].label
                                     name = blinds[key].name
