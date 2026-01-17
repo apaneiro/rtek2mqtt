@@ -191,14 +191,14 @@ async def mqtt_listen(mqtt_tg, client):
                             hex_payload = '00'    # stopped
                             match payload:
                                 case 'CLOSE':
-                                    hex_payload = '01'
-                                case 'OPEN':
                                     hex_payload = '02'
+                                case 'OPEN':
+                                    hex_payload = '01'
                             packet = f'fa 02 00 48 00 00 00 09 00 00 {hex_key} 00 00 00 {hex_payload} ab'
                             rtekTxQueue.put_nowait(packet)
 
                         case 'set_position':
-                            hex_key = "%0.4x" % (entity_key + 2)
+                            hex_key = "%0.4x" % (entity_key + 1)
                             position = int(payload)
                             hex_position = "%0.4x" % position
                             packet = f'fa 02 00 48 00 00 00 09 00 00 {hex_key} 00 00 {hex_position} ab'
@@ -394,7 +394,7 @@ class RtekClient(asyncio.Protocol):
                                 # blind?
                                 try:
                                     blind_state = blinds[key].state
-                                    mqtt_state = 'stopped' if state == 0 else 'closing' if state == 1 else 'opening'
+                                    mqtt_state = 'stopped' if state == 0 else 'opening' if state == 1 else 'closing'
                                     topic = blinds[key].topic + '/state'
                                     label = blinds[key].label
                                     name = blinds[key].name
@@ -408,7 +408,6 @@ class RtekClient(asyncio.Protocol):
                                     # blind position?
                                     try:
                                         blind_position = blinds[key - 2].position
-                                        mqtt_state = 'stopped' if state == 0 else 'closing' if state == 1 else 'closing'
                                         log_state = "{0:d}".format(state)
                                         topic = blinds[key - 2].topic + '/position'
                                         label = blinds[key - 2].label
